@@ -3,7 +3,6 @@
 <title>ET Quiz – 23 Nov 2026</title>
 <style>
 :root{--bg:#faf6ee;--card:#fff;--ink:#1b1b1b;--mut:#6b6558;--line:#e2dccd;--acc:#b3122a;--ok:#1f8a4c;--bad:#c62828;--amb:#d98300}
-@media(prefers-color-scheme:dark){:root{--bg:#16140f;--card:#201d16;--ink:#f3eee2;--mut:#a39c8b;--line:#38332a;--acc:#ff5a6e;--ok:#4cc57e;--bad:#ff6b6b;--amb:#ffb340}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif}
 header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:3px double var(--ink)}
 h1{margin:0;font-size:1.3rem}h1 span{color:var(--acc)}
@@ -112,7 +111,7 @@ function clr(i){delete S.ans[i];save();render()}
 function score(){
  $("vS").innerHTML=GROUPS.map(([gn,ms],g)=>{let gt=0;
   const rows=ms.map((n,m)=>{let t=0;const cells=[0,1].map(k=>{const i=g*6+m*2+k,p=pts(i);if(p!==null)t+=p;return`<td>${p===null?"–":(p>0?"+"+p:p)}</td>`}).join("");gt+=t;return`<tr><td><b>${n}</b></td>${cells}<td><b class="${t>0?"pos":t<0?"neg":""}">${t}</b></td></tr>`}).join("");
-  return`<div class="grp"><h2><span>${gn}</span><span>Total: ${gt}</span></h2><table><tr><th>Member</th><th>Politics Q</th><th>Business Q</th><th>Total</th></tr>${rows}</table></div>`}).join("")
+  return`<div class="grp"><h2><span>${gn}</span><span>Total: ${gt}</span></h2><table><tr><th>Member</th><th>Politics/Internation affairs Q</th><th>Business Q</th><th>Total</th></tr>${rows}</table></div>`}).join("")
   +`<button class="btn" onclick="if(confirm('Clear all marks?')){S.ans={};save();score()}">Reset all scores</button>`;
 }
 function edit(){
