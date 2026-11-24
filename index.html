@@ -35,6 +35,7 @@ table{width:100%;border-collapse:collapse;font-family:system-ui;font-size:.92rem
 .ed{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;font-family:system-ui}
 .ed input[type=text],.ed textarea{width:100%;font:inherit;padding:7px;margin:3px 0;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
 .ed label{display:flex;gap:8px;align-items:center}
+.tie-team{border:1px solid var(--line);border-radius:8px;padding:14px;margin:14px 0}.tie-team h3{margin:0 0 10px}
 .hide{display:none}
 </style></head><body>
 <header><h1>The <span>Economic Times</span> Quiz · 23 Nov 2026</h1>
@@ -66,12 +67,23 @@ const DEFAULT_Q=[
 ["FPIs have been net buyers of Indian equities for how many consecutive sessions (as of November)?",["5","8","13","189"],2],
 ["What does VVP, under which Arunachal border villages saw population rise (per Amit Shah), stand for?",["Vibrant Villages Programme","Village Value Plan","Viksit Village Project","Vital Villages Policy"],0],
 ["Which soft drink is Coca-Cola bringing back after 26 years?",["Gold Spot","Thums Up","Limca","Maaza"],0]];
-const KEY="etquiz.v1";let S={q:DEFAULT_Q,ans:{}},cur=0,tm=null,ac=null,tick=null;
+const TIE_Q=[
+["What valuation range are public market investors estimating for Oravel Stays ahead of its proposed IPO?",["₹20,000–22,000 crore","₹15,000–17,000 crore","₹25,000–27,000 crore","₹30,000–32,000 crore"],0],
+["Which US hospitality company did Oravel Stays acquire in December 2024?",["Choice Hotels","G6 Hospitality","Wyndham Hotels","Marriott International"],1],
+["What percentage of Mahindra Finance’s total assets under management comes from vehicle loans?",["60%","70%","80%","90%"],2],
+["What data centre capacity is Karnataka targeting by 2031?",["500 MW","750 MW","1,000 MW","1,500 MW"],2],
+["How much funding is Cognition AI reportedly considering raising at a proposed $75 billion valuation?",["$500 million or more","$1 billion or more","$2 billion or more","$5 billion or more"],2]];
+const KEY="etquiz.v1";let S={q:DEFAULT_Q,ans:{},tieAns:{}},cur=0,tm=null,ac=null,tick=null;
 try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.q&&d.q.length==18)S=d}catch(e){}
+S.tieAns=S.tieAns||{};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const info=i=>({g:Math.floor(i/6),m:Math.floor(i%6/2),t:i%2?"Business Affairs":"International / Indian Politics"});
 const pts=(i)=>{const a=S.ans[i];if(a===undefined)return null;if(a===-1)return 0;return a===S.q[i][2]?2:-1};
 const $=id=>document.getElementById(id),L="ABCD";
+function groupTotals(){return GROUPS.map((_,g)=>{let total=0;for(let i=g*6;i<g*6+6;i++){const p=pts(i);if(p!==null)total+=p}return total})}
+function tiedGroups(){if(S.q.some((_,i)=>S.ans[i]===undefined))return[];const totals=groupTotals(),high=Math.max(...totals);return totals.flatMap((n,g)=>n===high?[g]:[]).length>1?totals.flatMap((n,g)=>n===high?[g]:[]):[]}
+function tiePoints(g){return TIE_Q.reduce((n,_,i)=>n+(S.tieAns[`${g}:${i}`]===TIE_Q[i][2]?1:0),0)}
+function tieBreakStatus(groups){if(groups.some(g=>TIE_Q.some((_,i)=>S.tieAns[`${g}:${i}`]===undefined)))return"Answer all five questions for each tied group to determine the winner.";const high=Math.max(...groups.map(tiePoints)),winners=groups.filter(g=>tiePoints(g)===high);return winners.length===1?`${GROUPS[winners[0]][0]} wins the tie-break.`:"The tie remains after all five questions."}
 
 /* sounds (generated with Web Audio, no files needed) */
 function actx(){ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state=="suspended")ac.resume();return ac}
@@ -90,29 +102,42 @@ function startTimer(){
   clock.textContent=Math.ceil(r/1000)},100);
  clock.textContent=5;
 }
-function mark(i,v){S.ans[i]=v;save();stopTimer();render()}
+function mark(i,v){const priorTie=tiedGroups().join(",");S.ans[i]=v;if(priorTie!==tiedGroups().join(","))S.tieAns={};save();stopTimer();render()}
 
 function render(){
+ const tied=tiedGroups();
+ if(cur>=S.q.length&&!tied.length)cur=0;
+ $("dots").innerHTML=S.q.map((_,k)=>{const p=pts(k);return`<button class="${k==cur?"cur ":""}${p==2?"c":p==-1?"w":p===0?"u":""}" onclick="go(${k})">${k+1}</button>`}).join("")+
+ (tied.length?TIE_Q.map((_,k)=>`<button class="${S.q.length+k==cur?"cur ":""}${tied.every(g=>S.tieAns[`${g}:${k}`]!==undefined)?"c":""}" onclick="go(${S.q.length+k})">T${k+1}</button>`).join(""):"");
+ if(cur>=S.q.length){renderTie(cur-S.q.length,tied);return}
  const i=cur,{g,m,t}=info(i),[q,o,c]=S.q[i],a=S.ans[i],done=a!==undefined;
- $("dots").innerHTML=S.q.map((_,k)=>{const p=pts(k);return`<button class="${k==i?"cur ":""}${p==2?"c":p==-1?"w":p===0?"u":""}" onclick="go(${k})">${k+1}</button>`}).join("");
  const p=pts(i);
- $("slide").innerHTML=`<div class="meta"><span class="pill">Question ${i+1} / 18</span><span class="pill">${GROUPS[g][0]}</span><span class="pill who">${GROUPS[g][1][m]}</span><span class="pill">${t}</span></div>
+ $("slide").innerHTML=`<div class="meta"><span class="pill">Question ${i+1} / 18</span><span class="pill">${GROUPS[g][0]}</span><span class="pill who">${GROUPS[g][1][m]}</span><span class="pill">${t}</span>${tied.length?`<span class="pill">Tie-breakers unlocked</span>`:""}</div>
  <h2 class="q">${esc(q)}</h2><div class="opts">${o.map((x,k)=>`<button class="opt ${done&&k==c?"right":""} ${done&&a==k&&k!=c?"wrong":""} ${a==k?"picked":""}" onclick="mark(${i},${k})"><b>${L[k]}</b>${esc(x)}</button>`).join("")}</div>
  <div class="bar"><div class="timer"><div id="clock">5</div><div id="phase">Ready</div><button class="btn pri" id="start" onclick="startTimer()">▶ Start timer</button></div>
  <div><button class="btn" onclick="mark(${i},-1)">Unanswered (0)</button> ${done?`<button class="btn" onclick="clr(${i})">Clear</button>`:""}</div></div>
  <div class="bar"><button class="btn" onclick="go(${i-1})" ${i==0?"disabled":""}>← Previous</button>
  <span class="res ${p>0?"pos":p<0?"neg":""}">${done?(p>0?"Correct +2":p<0?"Wrong −1":"Unanswered 0")+" · "+GROUPS[g][1][m]:"Not marked yet"}</span>
- <button class="btn" onclick="go(${i+1})" ${i==17?"disabled":""}>Next →</button></div>`;
+ <button class="btn" onclick="go(${i+1})" ${i==17&&!tied.length?"disabled":""}>Next →</button></div>`;
 }
+function renderTie(i,tied){
+ $("slide").innerHTML=`<div class="meta"><span class="pill">Tie-breaker ${i+1} / ${TIE_Q.length}</span><span class="pill">For tied groups: ${tied.map(g=>GROUPS[g][0]).join(", ")}</span></div>
+ <h2 class="q">${esc(TIE_Q[i][0])}</h2>${tied.map(g=>`<div class="tie-team" id="tie-team-${g}">${tieTeamContent(i,g)}</div>`).join("")}
+ <div class="bar"><div class="timer"><div id="clock">5</div><div id="phase">Ready</div><button class="btn pri" id="start" onclick="startTimer()">▶ Start timer</button></div><span class="res">Timer applies to all tied groups; tie-break points are separate.</span></div>
+ <div class="bar"><button class="btn" onclick="go(${S.q.length+i-1})">← Previous</button><span></span><button class="btn" onclick="go(${S.q.length+i+1})" ${i==TIE_Q.length-1?"disabled":""}>Next →</button></div>`;
+}
+function tieTeamContent(i,g){const[q,o,c]=TIE_Q[i],a=S.tieAns[`${g}:${i}`],done=a!==undefined;return`<h3>${GROUPS[g][0]} · ${tiePoints(g)} correct</h3><div class="opts">${o.map((x,k)=>`<button class="opt ${done&&k==c?"right":""} ${done&&a==k&&k!=c?"wrong":""} ${a==k?"picked":""}" onclick="markTie(${i},${g},${k})"><b>${L[k]}</b>${esc(x)}</button>`).join("")}</div>`}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function go(k){if(k<0||k>17)return;stopTimer();cur=k;render()}
-function clr(i){delete S.ans[i];save();render()}
+function go(k){const max=S.q.length+(tiedGroups().length?TIE_Q.length:0);if(k<0||k>=max)return;stopTimer();cur=k;render()}
+function clr(i){const priorTie=tiedGroups().join(",");delete S.ans[i];if(priorTie!==tiedGroups().join(","))S.tieAns={};save();render()}
+function markTie(i,g,a){S.tieAns[`${g}:${i}`]=a;save();$(`tie-team-${g}`).innerHTML=tieTeamContent(i,g);const dot=$("dots").children[S.q.length+i];dot.classList.toggle("c",tiedGroups().every(group=>S.tieAns[`${group}:${i}`]!==undefined))}
 
 function score(){
  $("vS").innerHTML=GROUPS.map(([gn,ms],g)=>{let gt=0;
   const rows=ms.map((n,m)=>{let t=0;const cells=[0,1].map(k=>{const i=g*6+m*2+k,p=pts(i);if(p!==null)t+=p;return`<td>${p===null?"–":(p>0?"+"+p:p)}</td>`}).join("");gt+=t;return`<tr><td><b>${n}</b></td>${cells}<td><b class="${t>0?"pos":t<0?"neg":""}">${t}</b></td></tr>`}).join("");
   return`<div class="grp"><h2><span>${gn}</span><span>Total: ${gt}</span></h2><table><tr><th>Member</th><th>Politics/Internation affairs Q</th><th>Business Q</th><th>Total</th></tr>${rows}</table></div>`}).join("")
-  +`<button class="btn" onclick="if(confirm('Clear all marks?')){S.ans={};save();score()}">Reset all scores</button>`;
+  +(tiedGroups().length?`<div class="grp"><h2>Tie-breaker</h2><p>Unlocked for ${tiedGroups().map(g=>GROUPS[g][0]).join(", ")} because the completed scorecard is tied for the lead.</p>${tiedGroups().map(g=>`<p>${GROUPS[g][0]}: ${tiePoints(g)} / ${TIE_Q.length} correct</p>`).join("")}<p><b>${tieBreakStatus(tiedGroups())}</b></p></div>`:"")
+  +`<button class="btn" onclick="if(confirm('Clear all marks?')){S.ans={};S.tieAns={};save();score()}">Reset all scores</button>`;
 }
 function edit(){
  $("vE").innerHTML=`<p style="font-family:system-ui">Edit the questions, options and the correct answer, then press Save. Order is fixed: for each member, Politics question then Business question.</p>`+
